@@ -13,7 +13,7 @@ using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
 using Object = UnityEngine.Object;
 
-public class DalakBuildWindow : EditorWindow
+public class DalakBuild : EditorWindow
 {
 
     /*//TODO: İSİM KOYMACA, EKLENTİ EKLEMECE, REORDERABLEW LIST DÜZELTMECE
@@ -75,7 +75,6 @@ public class DalakBuildWindow : EditorWindow
         var name = arguments[0];
         var path = arguments[1];
         
-        Debug.Log(path);
         var scenesToBuild = EditorBuildSettings.scenes;
         var buildSettings = new BuildPlayerOptions();
 
