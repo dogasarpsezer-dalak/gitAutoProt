@@ -72,6 +72,7 @@ public class DalakBuildWindow : EditorWindow
     public static void Build()
     {
         var arguments = FindCommandArguments();
+        var name = arguments[0];
         var path = arguments[1];
         
         Debug.Log(path);
@@ -87,7 +88,7 @@ public class DalakBuildWindow : EditorWindow
         }
 
         buildSettings.target = BuildTarget.StandaloneWindows64;
-        buildSettings.locationPathName = path + ".exe";
+        buildSettings.locationPathName = path + name + ".exe";
         BuildPipeline.BuildPlayer(buildSettings);
 
     }
