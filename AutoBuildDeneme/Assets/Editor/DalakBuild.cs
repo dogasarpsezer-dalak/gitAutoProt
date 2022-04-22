@@ -54,6 +54,7 @@ public class DalakBuild : EditorWindow
         string pathRepo = repoPath.Replace(@"\","/");
         string gitAddCommand = string.Format(" --git-dir={0}/.git --work-tree={0} add {1}",pathRepo,buildsTXTPath);
         string gitCommitCommand = string.Format(" --git-dir={0}/.git --work-tree={0} commit -m \"Build Commit {1}\" ",pathRepo, buildNumber);
+        string gitRemoteCommand = string.Format(" --git-dir={0}/.git --work-tree={0} remote add origin https://github.com/dogasarpsezer-dalak/gitAutoProt.git",pathRepo);
         string gitPushCommand = string.Format(" --git-dir={0}/.git --work-tree={0} push origin main",pathRepo);
             
         ProcessStartInfo processStartInfo = new ProcessStartInfo()
