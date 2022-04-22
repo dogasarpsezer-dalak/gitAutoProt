@@ -1,54 +1,88 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using UnityEditor;
 using UnityEditor.Build.Reporting;
-using UnityEditor.SceneManagement;
-using UnityEditor.VersionControl;
-using UnityEditorInternal;
 using UnityEngine;
-using UnityEngine.Rendering;
-using UnityEngine.SceneManagement;
-using Object = UnityEngine.Object;
+using Debug = UnityEngine.Debug;
 
 public class DalakBuild : EditorWindow
 {
-
-    /*//TODO: İSİM KOYMACA, EKLENTİ EKLEMECE, REORDERABLEW LIST DÜZELTMECE
-    private static void BuildForAndroid(string[] scenePaths, string buildName)
+    [MenuItem("DalakWindow/DalakBuildWindows")]
+    public static void InitBuildWındows()
     {
-        var buildFolder = Directory.CreateDirectory(folderPath + "/" + buildName);
-        BuildPlayerOptions buildPlayerOptions = new BuildPlayerOptions();
-        
-        PlayerSettings.Android.keystoreName = Path.GetFullPath("../dalak_keystore.keystore");
-        PlayerSettings.Android.useCustomKeystore = true;
-        PlayerSettings.Android.keyaliasPass = "1DalakGames06?";
-        PlayerSettings.Android.keystorePass = "1DalakGames06?";
-        PlayerSettings.Android.targetSdkVersion = AndroidSdkVersions.AndroidApiLevel30;
-        PlayerSettings.Android.minSdkVersion = AndroidSdkVersions.AndroidApiLevel19;
-        
-        buildPlayerOptions.scenes = scenePaths;
-        buildPlayerOptions.locationPathName = buildFolder.FullName + "/" + buildName;
-        buildPlayerOptions.target = BuildTarget.Android;
-        buildPlayerOptions.options = BuildOptions.Development;
+        string projectPath = Application.dataPath;
+        string buildTXT = "builds.txt";
 
-
-
-        BuildReport report = BuildPipeline.BuildPlayer(buildPlayerOptions);
-        BuildSummary summary = report.summary;
+        var buildTXTPath = Directory.GetParent(projectPath) + "/" + buildTXT;
         
-        if (summary.result == BuildResult.Succeeded)
+        if (!File.Exists(buildTXTPath))
         {
-            Debug.Log("Build succeeded: " + summary.totalSize + " bytes");
+            File.CreateText(buildTXTPath).Close();
         }
 
-        if (summary.result == BuildResult.Failed)
+        List<string> buildTexts = new List<string>();
+        StreamReader sr = new StreamReader(buildTXTPath);
+        var readLine = sr.ReadLine();
+        
+        string lastBuild = "";
+        while (readLine != null)
         {
-            Debug.Log("Build failed");
+            lastBuild = readLine;
+            buildTexts.Add(lastBuild);
+            readLine = sr.ReadLine();
         }
-    }*/
+        sr.Close();
+        
+        int lastBuildNumber = buildTexts.Count + 1;
+        var buildText = "build_" + lastBuildNumber;
+        buildTexts.Add(buildText);
+        
+        File.WriteAllLines(buildTXTPath,buildTexts);
+        
+        //GIT Process
+        var assetsParent = Directory.GetParent(projectPath);
+        var gitRepoPath = assetsParent.Parent.FullName;
+        
+        CommitRepo(gitRepoPath,buildTXTPath,lastBuildNumber);
+        
+    }
+
+    public static void CommitRepo(string repoPath,string buildsTXTPath, int buildNumber)
+    {
+        string pathRepo = repoPath.Replace(@"\","/");
+        string gitAddCommand = string.Format(" --git-dir={0}/.git --work-tree={0} add {1}",pathRepo,buildsTXTPath);
+        string gitCommitCommand = string.Format(" --git-dir={0}/.git --work-tree={0} commit -m \"Build Commit {1}\" ",pathRepo, buildNumber);
+        string gitPushCommand = string.Format(" --git-dir={0}/.git --work-tree={0} push ",pathRepo, buildNumber);
+            
+        ProcessStartInfo processStartInfo = new ProcessStartInfo()
+        {
+            //OS or EXE should start the process
+            UseShellExecute = false,
+                
+            //The Output will be Standard Output Stream
+            RedirectStandardOutput = true,
+                
+            //Application to start
+            FileName = "git.exe",
+                
+            Arguments = gitAddCommand
+        };
+            
+        Process gitProcess = new Process();
+        gitProcess.StartInfo = processStartInfo;
+        gitProcess.Start();
+
+        processStartInfo.Arguments = gitCommitCommand;
+        gitProcess.Start();
+        
+        processStartInfo.Arguments = gitPushCommand;
+        gitProcess.Start();
+        
+        string output = gitProcess.StandardOutput.ReadToEnd();
+        gitProcess.WaitForExit();
+    }
     
     public static string[] FindCommandArguments()
     {
@@ -67,28 +101,65 @@ public class DalakBuild : EditorWindow
         }
         return arguments;
     }
-    
-    [MenuItem("Dalak/DalakBuild")]
-    public static void Build()
+
+    public static void BuildForAndroid()
     {
         var arguments = FindCommandArguments();
         var name = arguments[0];
         var path = arguments[1];
         
-        var scenesToBuild = EditorBuildSettings.scenes;
         var buildSettings = new BuildPlayerOptions();
+        buildSettings.target = BuildTarget.Android;
+        buildSettings.locationPathName = path + name + ".apk";
+        PlayerSettings.Android.keystoreName = Path.GetFullPath("../dalak_keystore.keystore");
+        PlayerSettings.Android.useCustomKeystore = true;
+        PlayerSettings.Android.keyaliasPass = "1DalakGames06?";
+        PlayerSettings.Android.keystorePass = "1DalakGames06?";
+        PlayerSettings.Android.targetSdkVersion = AndroidSdkVersions.AndroidApiLevel30;
+        PlayerSettings.Android.minSdkVersion = AndroidSdkVersions.AndroidApiLevel19;
+        buildSettings.target = BuildTarget.Android;
+        buildSettings.options = BuildOptions.Development;
+        
+        BuildProject(buildSettings);
 
-        buildSettings.scenes = new string[scenesToBuild.Length];
+    }
+    
+    public static void BuildForWindows64()
+    {
+        var arguments = FindCommandArguments();
+        var name = arguments[0];
+        var path = arguments[1];
+        
+        var buildSettings = new BuildPlayerOptions();
+        buildSettings.target = BuildTarget.StandaloneWindows64;
+        buildSettings.locationPathName = path + name + ".exe";
+        
+        BuildProject(buildSettings);
+    }
+    
+    public static void BuildProject(BuildPlayerOptions buildPlayerOptions)
+    {
+        var scenesToBuild = EditorBuildSettings.scenes;
+        buildPlayerOptions.scenes = new string[scenesToBuild.Length];
         int count = 0;
         foreach (var scene in scenesToBuild)
         {
-            buildSettings.scenes[count] = scene.path;
+            buildPlayerOptions.scenes[count] = scene.path;
             count++;
         }
 
-        buildSettings.target = BuildTarget.StandaloneWindows64;
-        buildSettings.locationPathName = path + name + ".exe";
-        BuildPipeline.BuildPlayer(buildSettings);
+        BuildReport report = BuildPipeline.BuildPlayer(buildPlayerOptions);
+        BuildSummary summary = report.summary;
+        
+        if (summary.result == BuildResult.Succeeded)
+        {
+            //Debug.Log("Build succeeded: " + summary.totalSize + " bytes");
+        }
+
+        if (summary.result == BuildResult.Failed)
+        {
+            Debug.Log("Build failed");
+        }
 
     }
 
