@@ -54,7 +54,7 @@ public class DalakBuild : EditorWindow
         string pathRepo = repoPath.Replace(@"\","/");
         string gitAddCommand = string.Format(" --git-dir={0}/.git --work-tree={0} add {1}",pathRepo,buildsTXTPath);
         string gitCommitCommand = string.Format(" --git-dir={0}/.git --work-tree={0} commit -m \"Build Commit {1}\" ",pathRepo, buildNumber);
-        string gitPushCommand = string.Format(" --git-dir={0}/.git --work-tree={0} push ",pathRepo, buildNumber);
+        string gitPushCommand = string.Format(" --git-dir={0}/.git --work-tree={0} push origin main",pathRepo);
             
         ProcessStartInfo processStartInfo = new ProcessStartInfo()
         {
@@ -82,6 +82,7 @@ public class DalakBuild : EditorWindow
         
         string output = gitProcess.StandardOutput.ReadToEnd();
         gitProcess.WaitForExit();
+        Debug.Log(output);
     }
     
     public static string[] FindCommandArguments()
