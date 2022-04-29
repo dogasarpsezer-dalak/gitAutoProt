@@ -9,53 +9,96 @@ using Debug = UnityEngine.Debug;
 
 public class DalakBuild : EditorWindow
 {
-    [MenuItem("DalakWindow/DalakBuildWindows")]
-    public static void InitBuildWındows()
+    public static string buildRepoPath = "D://BuildRepo/build_pipeline";
+    
+    [MenuItem("DalakBuild/Create Local Pipeline Repo")]
+    public static void CreatePipelineOnLocal()
     {
+        if (Directory.Exists(buildRepoPath))
+        {
+            Debug.LogError($"Local pipeline repo already exists you can use build! If you want to create it again please remove the local repo first! Path to delete: {buildRepoPath}");
+            return;
+        }
+        
+        string buildRepoURL = "https://github.com/dogasarpsezer-dalak/build_pipeline.git";
+        string gitCloneCommand = string.Format(" --git-dir=D:// clone {0} {1}",buildRepoURL,buildRepoPath);
+        string gitRemoteCommand = string.Format(" --git-dir={0}/.git --work-tree={0} remote add origin {1}",buildRepoPath,buildRepoURL);
+        ProcessStartInfo processStartInfo = new ProcessStartInfo()
+        {
+            //OS or EXE should start the process
+            UseShellExecute = false,
+                
+            //The Output will be Standard Output Stream
+            RedirectStandardOutput = true,
+                
+            //Application to start
+            FileName = "git.exe",
+                
+            Arguments = gitCloneCommand
+        };
+            
+        Process gitProcess = new Process();
+        gitProcess.StartInfo = processStartInfo;
+        gitProcess.Start();
+
+        processStartInfo.Arguments = gitRemoteCommand;
+        gitProcess.Start();
+        
+        gitProcess.WaitForExit();
+    }
+    [MenuItem("DalakBuild/Add To Build Queue")]
+    public static void InitBuildWindows()
+    {
+        
+        var queuePath = buildRepoPath + "/build_queue.txt";
+        if (!File.Exists(queuePath))
+        {
+            Debug.LogError($"Build Queue is missing please remove the repo path and create it again! Path to delete: {buildRepoPath}");
+            return;
+        }
+        
         string projectPath = Application.dataPath;
-        string buildTXT = "builds.txt";
-
-        var buildTXTPath = Directory.GetParent(projectPath) + "/" + buildTXT;
-        
-        if (!File.Exists(buildTXTPath))
-        {
-            File.CreateText(buildTXTPath).Close();
-        }
-
-        List<string> buildTexts = new List<string>();
-        StreamReader sr = new StreamReader(buildTXTPath);
-        var readLine = sr.ReadLine();
-        
-        string lastBuild = "";
-        while (readLine != null)
-        {
-            lastBuild = readLine;
-            buildTexts.Add(lastBuild);
-            readLine = sr.ReadLine();
-        }
-        sr.Close();
-        
-        int lastBuildNumber = buildTexts.Count + 1;
-        var buildText = "build_" + lastBuildNumber;
-        buildTexts.Add(buildText);
-        
-        File.WriteAllLines(buildTXTPath,buildTexts);
-        
-        //GIT Process
         var assetsParent = Directory.GetParent(projectPath);
         var gitRepoPath = assetsParent.Parent.FullName;
+        Debug.Log(gitRepoPath);
+        string gitRepoURLCommand = string.Format("--git-dir={0}/.git --work-tree={0} config --get remote.origin.url",gitRepoPath);
         
-        CommitRepo(gitRepoPath,buildTXTPath,lastBuildNumber);
+        ProcessStartInfo processStartInfo = new ProcessStartInfo()
+        {
+            //OS or EXE should start the process
+            UseShellExecute = false,
+                
+            //The Output will be Standard Output Stream
+            RedirectStandardOutput = true,
+                
+            //Application to start
+            FileName = "git.exe",
+                
+            Arguments = gitRepoURLCommand
+        };
+
+        Process gitProcess = new Process();
+        gitProcess.StartInfo = processStartInfo;
+        gitProcess.Start();
+        string gitRepoURL = gitProcess.StandardOutput.ReadLine();
+        gitProcess.WaitForExit();
+
+        using (StreamWriter streamWriter = File.AppendText(queuePath))
+        {
+            streamWriter.Write(gitRepoURL + "\t|IN QUEUE|\t|DATE & TIME OF INSERTION: " + DateTime.Now.ToString("MM/dd/yyyy h:mm tt") + "|" + "\n");
+            streamWriter.Close();
+        }
         
+        CommitBuildRepo(buildRepoPath,queuePath);
     }
 
-    public static void CommitRepo(string repoPath,string buildsTXTPath, int buildNumber)
+    public static void CommitBuildRepo(string repoPath, string txtPath)
     {
-        string pathRepo = repoPath.Replace(@"\","/");
-        string gitAddCommand = string.Format(" --git-dir={0}/.git --work-tree={0} add {1}",pathRepo,buildsTXTPath);
-        string gitCommitCommand = string.Format(" --git-dir={0}/.git --work-tree={0} commit -m \"Build Commit {1}\" ",pathRepo, buildNumber);
-        string gitRemoteCommand = string.Format(" --git-dir={0}/.git --work-tree={0} remote add origin https://github.com/dogasarpsezer-dalak/gitAutoProt.git",pathRepo);
-        string gitPushCommand = string.Format(" --git-dir={0}/.git --work-tree={0} push origin main",pathRepo);
+        string gitAddCommand = string.Format("--git-dir={0}/.git --work-tree={0} add {1}",repoPath,txtPath);
+        string gitStatusCommand = string.Format( "--git-dir={0}/.git --work-tree={0} status",repoPath);
+        string gitDiffCommand = string.Format( "--git-dir={0}/.git --work-tree={0} diff",repoPath);
+        string gitCommitCommand = string.Format("--git-dir={0}/.git --work-tree={0} commit -m \"Build Commit\"",repoPath);
+        string gitPushCommand = string.Format("--git-dir={0}/.git --work-tree={0} push origin main",repoPath);
             
         ProcessStartInfo processStartInfo = new ProcessStartInfo()
         {
@@ -74,16 +117,20 @@ public class DalakBuild : EditorWindow
         Process gitProcess = new Process();
         gitProcess.StartInfo = processStartInfo;
         gitProcess.Start();
+        gitProcess.WaitForExit();
 
+        processStartInfo.Arguments = gitStatusCommand;
+        gitProcess.Start();
+        gitProcess.WaitForExit();
+        
         processStartInfo.Arguments = gitCommitCommand;
         gitProcess.Start();
-        
+        gitProcess.WaitForExit();
+
         processStartInfo.Arguments = gitPushCommand;
         gitProcess.Start();
         
-        string output = gitProcess.StandardOutput.ReadToEnd();
         gitProcess.WaitForExit();
-        Debug.Log(output);
     }
     
     public static string[] FindCommandArguments()
@@ -162,9 +209,7 @@ public class DalakBuild : EditorWindow
         {
             Debug.Log("Build failed");
         }
-
     }
-
 }
 
 
